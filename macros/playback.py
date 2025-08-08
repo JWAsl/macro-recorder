@@ -19,21 +19,21 @@ class MacroPlayer:
     It supports a pause/resume feature triggered by a hotkey.
     """
     # use keyboard library key codes
-    PAUSE_KEY: str = 'pause'
+    PAUSE_KEY = 'pause'
     """
     Determines how far each 'scroll' action will travel.
     A user might need to edit it to match how far one notch of their mouse wheel travels on their system
     """
     SCROLL_MULTIPLIER: int = 120
 
-    def __init__(self) -> None:
+    def __init__(self):
         """
         Initializes the MacroPlayer with default settings and action handlers.
         """
         pyautogui.FAILSAFE = True
         self.is_paused = False
         # Condition variable for thread synchronization (pause/resume)
-        self.pause_lock: threading.Condition = threading.Condition()
+        self.pause_lock = threading.Condition()
         # Importing pynput -> pyautogui key code conversions from key_mappings.py
         self.key_map = key_map
         self.action_handlers = {
@@ -62,22 +62,22 @@ class MacroPlayer:
 
     def handle_key_down(self, action) -> None:
         self.wait_if_paused()
-        key: str = self.convert_key(action['button'])
+        key = self.convert_key(action['button'])
         pyautogui.keyDown(key)
         # print(f"Keydown on {key}")
 
     def handle_key_up(self, action) -> None:
         self.wait_if_paused()
-        key: str = self.convert_key(action['button'])
+        key = self.convert_key(action['button'])
         pyautogui.keyUp(key)
         # print(f"Keyup on {key}")
 
     def handle_scroll(self, action) -> None:
         self.wait_if_paused()
-        x: float = action['pos'][0]
-        y: float = action['pos'][1]
-        dx: int = action['scroll_direction'].get('dx', 0)
-        dy: int = action['scroll_direction'].get('dy', 0)
+        x = action['pos'][0]
+        y = action['pos'][1]
+        dx = action['scroll_direction'].get('dx', 0)
+        dy = action['scroll_direction'].get('dy', 0)
 
         pyautogui.moveTo(x, y)
 
@@ -100,12 +100,11 @@ class MacroPlayer:
         Toggles the playback state between paused and resumed.
         This method is called by the hotkey listener thread.
         """
-        was_paused: bool = False
+        was_paused = False
 
         with self.pause_lock:
             self.is_paused = not self.is_paused
             was_paused = self.is_paused
-            print(f"Playback paused: {self.is_paused}")
             if not self.is_paused:
                 # Notify the playback loop to resume
                 self.pause_lock.notify_all()
@@ -113,7 +112,7 @@ class MacroPlayer:
 
         # This sleep prevents the user from accidentally resuming right after attempting to pause
         if was_paused:
-            print("Playback paused. Ignoring further hotkey presses for 3 seconds.")
+            print("Playback paused. Ignoring further key presses for 3 seconds.")
             sleep(3)
 
     def start_pause_listener(self) -> None:
@@ -128,7 +127,7 @@ class MacroPlayer:
         """
         with self.pause_lock:
             while self.is_paused:
-                print("Currently paused... Press 'pause' to resume.")
+                print(f"Currently paused... Press {self.PAUSE_KEY} to resume.")
                 # This will block until a notify() call is received from toggle_pause
                 self.pause_lock.wait()
 
@@ -160,18 +159,17 @@ class MacroPlayer:
 
         # Clean up the hotkey listener after playback is complete.
         keyboard.remove_hotkey(self.PAUSE_KEY)
-        print("Playback finished.")
 
     def handle_delay(self, current_action, next_action) -> None:
         """
         Pauses execution for the time duration between two recorded actions.
         """
-        elapsed_time: float = next_action['time'] - current_action['time']
+        elapsed_time = next_action['time'] - current_action['time']
         if elapsed_time < 0:
             raise ValueError(
                 'Unexpected ordering between next_action and current_action.')
 
-        slept: float = 0.0
+        slept = 0.0
         while slept < elapsed_time:
             self.wait_if_paused()
             start_time: float = time()
@@ -179,7 +177,7 @@ class MacroPlayer:
             sleep(min(0.01, elapsed_time - slept))
             slept += time() - start_time
 
-    def convert_key(self, button: str) -> str:
+    def convert_key(self, button) -> str:
         """
         Converts a pynput key string to a PyAutoGUI library key string.
         """

@@ -29,7 +29,7 @@ class MacroRecorder:
     PAUSE_KEY = keyboard.Key.pause
     EXIT_KEY = keyboard.Key.esc
     # A list of keys to be ignored during recording
-    IGNORED_KEYS: list = []
+    IGNORED_KEYS = []
 
     def __init__(self):
         """

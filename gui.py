@@ -21,7 +21,7 @@ class MacroRecorderGUI:
     A class to create and manage the Tkinter-based GUI for the macro recorder.
     """
 
-    def __init__(self, master: tk.Tk):
+    def __init__(self, master):
         """
         Initializes the GUI and sets up the main window.
 
@@ -46,18 +46,11 @@ class MacroRecorderGUI:
         self.setup_widgets()
 
     def on_closing(self) -> None:
-        """
-        Handles the "close window" event by asking for confirmation.
-        """
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             self.master.destroy()
             print("Application closed successfully.")
 
     def setup_widgets(self) -> None:
-        """
-        Creates and places all the widgets on the main window.
-        Includes a fallback for when image assets are not found.
-        """
         assets_path = Path.cwd() / "assets"
         try:
             self.record_img = PhotoImage(file=str(assets_path / "record.png"))
@@ -86,7 +79,7 @@ class MacroRecorderGUI:
         Starts a new thread to run the recording process.
         The save dialog will be triggered on the main thread after recording finishes.
         """
-        thread: threading.Thread = threading.Thread(
+        thread = threading.Thread(
             target=self._record_and_save, daemon=True)
         thread.start()
 
@@ -95,7 +88,7 @@ class MacroRecorderGUI:
         Runs recording logic in a separate thread.
         Once recording is complete, it schedules a function to handle saving on the main thread.
         """
-        manager: MacroRecorder = MacroRecorder()
+        manager = MacroRecorder()
         manager.record()
         print(f"Recording Duration: {manager.elapsed_time()} seconds")
 
@@ -104,7 +97,7 @@ class MacroRecorderGUI:
 
     def _ask_and_save_recording(self, saved_inputs) -> None:
         """
-        Displays a simple dialog to ask the user for a filename and saves the recording.
+        Displays a simpledialog to ask the user for a filename and saves the recording.
         This function must be called from the main Tkinter thread.
 
         Args:
@@ -132,7 +125,7 @@ class MacroRecorderGUI:
         )
 
         if filepath:
-            thread: threading.Thread = threading.Thread(
+            thread = threading.Thread(
                 target=self._play_macro, args=(filepath,), daemon=True)
             thread.start()
         else:
@@ -145,7 +138,7 @@ class MacroRecorderGUI:
         Args:
             filepath: The path to the macro file to play.
         """
-        manager: MacroPlayer = MacroPlayer()
+        manager = MacroPlayer()
         data = open_file(filepath)
         if data:
             countdown_timer()
@@ -154,9 +147,6 @@ class MacroRecorderGUI:
 
 
 def setUpGUI() -> None:
-    """
-    Initializes the main Tkinter window and starts the event loop.
-    """
-    window: tk.Tk = tk.Tk()
-    app: MacroRecorderGUI = MacroRecorderGUI(window)
+    window = tk.Tk()
+    app = MacroRecorderGUI(window)
     window.mainloop()
