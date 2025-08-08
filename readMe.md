@@ -45,6 +45,11 @@ A cross-platform desktop automation tool to record and replay user actions. Buil
     PAUSE_KEY
 
     This can be edited with keyboard key codes
+---
+
+## Limitations
+
+Since key's are recorded and played back as individual keys, key combinations will not work (Ex. CTRL+S to save)
 
 # License
 
