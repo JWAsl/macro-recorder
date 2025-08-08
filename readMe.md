@@ -34,7 +34,7 @@ A cross-platform desktop automation tool to record and replay user actions. Buil
 
     Pause: At any time during the recording or playback you can press the 'Pause' key to pause. Press the 'Pause' key again to resume.
 
-    Exiting playback immediately: If you move your cursor to the top left of your monitor (0,0) PyAutoGUI immediately raises a pyautogui.FailSafeException. This exception halts the execution of the PyAutoGUI script,
+    Exiting playback immediately: If you move your cursor to the top left of your monitor (0,0) PyAutoGUI immediately raises a pyautogui.FailSafeException. This exception halts the execution of the PyAutoGUI script.
 
     Inside of recorder.py are the following:
     PAUSE_KEY
