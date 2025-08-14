@@ -122,7 +122,9 @@ class MacroRecorder:
 
         self.pressed_keys.add(key)
         self.record_event(EventType.KEY_DOWN,
-                          self.elapsed_time(), self.stringify_key(key))
+                          self.elapsed_time(),
+                          self.stringify_key(key),
+                          pressed_keys=[self.stringify_key(key) for key in self.pressed_keys])
 
     def on_release(self, key) -> None:
         """
@@ -132,11 +134,13 @@ class MacroRecorder:
         if self.is_paused or key in self.IGNORED_KEYS or key == self.PAUSE_KEY:
             return
 
+        self.record_event(EventType.KEY_UP,
+                          self.elapsed_time(),
+                          self.stringify_key(key),
+                          pressed_keys=[self.stringify_key(key) for key in self.pressed_keys])
+
         if key in self.pressed_keys:
             self.pressed_keys.remove(key)
-
-        self.record_event(EventType.KEY_UP, self.elapsed_time(),
-                          self.stringify_key(key))
 
         if key == self.EXIT_KEY:
             # Set the event to signal the main thread to terminate
@@ -166,7 +170,8 @@ class MacroRecorder:
             'type': event_type,
             'button': str(button),
             'pos': None,
-            'scroll_direction': None
+            'scroll_direction': None,
+            'pressed_keys': []
         }
 
         # Update with event-specific parameters (e.g., position, scroll direction)
