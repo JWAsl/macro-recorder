@@ -7,6 +7,7 @@ A cross-platform desktop automation tool to record and replay user actions. Buil
 ## Features
 
 - **Captures and saves keyboard and mouse events.**
+- **Key combination support (Ex. CTRL+S)
 - **Replays the recorded events as the user performed them to accurately automate repetitive tasks.**
 - **Simple GUI.**
 - **Pause key allows user to pause during a recording or during playback.**
@@ -48,10 +49,6 @@ A cross-platform desktop automation tool to record and replay user actions. Buil
 
     This can be edited with keyboard key codes
 ---
-
-## Limitations
-
-Since key's are recorded and played back as individual keys, key combinations will not work (Ex. CTRL+S to save)
 
 # License
 
