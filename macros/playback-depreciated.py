@@ -4,18 +4,18 @@ Manages playback of the recorded macro.
 import threading
 import pyautogui
 import keyboard
-import logging
 
-from time import sleep, time, perf_counter
+import time
 
 from utils.key_mappings import key_map
 from utils.countdown import countdown_timer
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
+# time.perf_counter() > time()
+# to fix the performance issues with playback
 
 
 class MacroPlayer:
-    """
+    """ 
     Manages playback of the recorded macro.
 
     This class plays back a serialized JSON of recorded events and simulates those events using pyautogui.
@@ -23,21 +23,22 @@ class MacroPlayer:
     """
     # use keyboard library key codes
     PAUSE_KEY = 'pause'
-    # Determines how far each 'scroll' action will travel.
-    # A user might need to edit it to match how far one notch of their mouse wheel travels on their system
+    """
+    Determines how far each 'scroll' action will travel.
+    A user might need to edit it to match how far one notch of their mouse wheel travels on their system
+    """
     SCROLL_MULTIPLIER: int = 120
-    # A safe minimum delay to allow the OS to process events.
-    MIN_DELAY_THRESHOLD = 0.005
+    """
+    The time in seconds to wait between pressing keys in a hotkey combination
+    to ensure the OS registers the key press.
+    """
+    HOTKEY_DELAY: float = 0.05
 
     def __init__(self):
         """
         Initializes the MacroPlayer with default settings and action handlers.
         """
-        # Allows us to stop the program by moving cursor to the top left of the monitor (0, 0)
-        pyautogui.FAILSAFE = True
-        # Remove the duration of the delay after each PyAutoGUI function call.
-        pyautogui.PAUSE = 0.0
-        self.start_time = time()
+        pyautogui.FAILSAFE = False
         self.is_paused = False
         # Condition variable for thread synchronization (pause/resume)
         self.pause_lock = threading.Condition()
@@ -57,6 +58,26 @@ class MacroPlayer:
             "Button.middle": "middle"
         }
 
+    def _press_and_release_combination(self, keys: list) -> None:
+        """
+        Presses and releases a list of keys in sequence with a small delay.
+        This is a more reliable way to handle hotkey combinations.
+
+        Args:
+            keys: A list of key names to press.
+        """
+        print(f"Executing hotkey combination: {keys}")
+
+        # Press all keys in the combination
+        for key in keys:
+            pyautogui.keyDown(key)
+            time.sleep(self.HOTKEY_DELAY)
+
+        # Release all keys in the reverse order
+        for key in reversed(keys):
+            pyautogui.keyUp(key)
+            time.sleep(self.HOTKEY_DELAY)
+
     def handle_click(self, action) -> None:
         self.wait_if_paused()
         button = self.mouse_button_map.get(action['button'], 'left')
@@ -71,25 +92,23 @@ class MacroPlayer:
         pyautogui.click(
             button=button
         )
-        logging.debug(f"Click: {button} at {action['pos']}")
+        print(f"Click: {button} at {action['pos']}")
 
     def handle_key_down(self, action) -> None:
         self.wait_if_paused()
         key = self.convert_key(action['button'])
-        # Only press the key if it's not already in the pressed state.
         if key not in self.pressed_keys:
             pyautogui.keyDown(key)
             self.pressed_keys.add(key)
-            logging.debug(f"Key down: {key}")
+            print(f"Key down: {key}")
 
     def handle_key_up(self, action) -> None:
         self.wait_if_paused()
         key = self.convert_key(action['button'])
-        # Only release the key if it's in the pressed state.
         if key in self.pressed_keys:
             pyautogui.keyUp(key)
             self.pressed_keys.remove(key)
-            logging.debug(f"Key up: {key}")
+            print(f"Key up: {key}")
 
     def handle_scroll(self, action) -> None:
         self.wait_if_paused()
@@ -102,13 +121,13 @@ class MacroPlayer:
 
         if dy != 0:
             pyautogui.scroll(int(dy * self.SCROLL_MULTIPLIER))
-            # logging.debug(
-            #    f"Scrolled vertically: {int(dy * self.SCROLL_MULTIPLIER)} at {x}, {y}")
+            print(
+                f"Scrolled vertically: {int(dy * self.SCROLL_MULTIPLIER)} at {x}, {y}")
 
         if dx != 0:
             pyautogui.hscroll(int(dx * self.SCROLL_MULTIPLIER))
-            # logging.debug(
-            #    f"Scrolled horizontally: {int(dx * self.SCROLL_MULTIPLIER)} at {x}, {y}")
+            print(
+                f"Scrolled horizontally: {int(dx * self.SCROLL_MULTIPLIER)} at {x}, {y}")
 
     def toggle_pause(self) -> None:
         """
@@ -118,17 +137,16 @@ class MacroPlayer:
         with self.pause_lock:
             self.is_paused = not self.is_paused
             if not self.is_paused:
-                logging.info("Resuming playback...")
+                print("Resuming playback...")
                 self.pause_lock.notify_all()
                 countdown_timer()
             else:
-                logging.info("Playback paused.")
+                print("Playback paused.")
 
-        # This sleep prevents the user from accidentally resuming right after attempting to pause.
+        # This sleep prevents the user from accidentally resuming right after attempting to pause
         if self.is_paused:
-            logging.info(
-                "Playback paused. Ignoring further key presses for 3 seconds.")
-            sleep(3)
+            print("Playback paused. Ignoring further key presses for 3 seconds.")
+            time.sleep(3)
 
     def start_pause_listener(self) -> None:
         """
@@ -142,42 +160,43 @@ class MacroPlayer:
         """
         with self.pause_lock:
             while self.is_paused:
-                logging.info(
-                    f"Currently paused... Press {self.PAUSE_KEY} to resume.")
+                print(f"Currently paused... Press {self.PAUSE_KEY} to resume.")
                 # This will block until a notify() call is received from toggle_pause
                 self.pause_lock.wait()
 
     def play_actions(self, data) -> None:
         """
-        Iterates through a list of actions and simulates them,
-        correcting for playback speed in real-time.
-        """
-        if not data:
-            logging.info("EMPTY FILE: No actions found.")
-            return
+        Iterates through a list of actions and simulates them.
 
+        Args:
+            data: A list of dictionaries, where each dictionary represents a recorded event.
+        """
         self.start_pause_listener()
+
+        # Clear any initially pressed keys from previous runs
         self.pressed_keys.clear()
 
-        playback_start_time = perf_counter()
+        # Set a satartikng point for the playback timer
+        playback_start_time = time.perf_counter()
 
-        for i, action in enumerate(data):
+        # Store the absolute time of the last played action
+        macro_start_time = data[0]['time'] if data else 0
+
+        for index, action in enumerate(data):
             self.wait_if_paused()
 
-            time_delta = action.get('time_delta', 0)
-            # Added a minimum delay because rapid, consecutive actions had a chance to fail.
-            if time_delta < self.MIN_DELAY_THRESHOLD:
-                time_delta = self.MIN_DELAY_THRESHOLD
+            # This is the target time for the current action, relative to playback start.
+            # We use the absolute timestamps from the recording.
+            target_playback_time = (action['time'] - macro_start_time)
 
-            logging.debug(f"Waiting for {time_delta:.6f}s...")
-
-            sleep(time_delta)
+            # Wait until the target time has passed since the start of the playback loop
+            while (time.perf_counter() - playback_start_time) < target_playback_time:
+                pass  # We use a busy-wait for maximum precision.
 
             if self.convert_key(action['button']) == 'esc':
-                logging.info("Reached end of macro.")
+                print("Encountered ESC key in macro, playback ending.")
                 break
 
-            # Execute the action
             handler = self.action_handlers.get(action['type'])
             if handler:
                 handler(action)
@@ -185,9 +204,12 @@ class MacroPlayer:
                 raise Exception(
                     'No action handler found for type: {}'.format(action['type']))
 
-            time_after_handler = perf_counter()
+        # Ensure all keys are released at the end of playback
         self.cleanup()
+
+        # Clean up the hotkey listener after playback is complete.
         keyboard.remove_hotkey(self.PAUSE_KEY)
+        print("Playback finished.")
 
     def cleanup(self) -> None:
         """
@@ -196,10 +218,27 @@ class MacroPlayer:
         for key in list(self.pressed_keys):
             try:
                 pyautogui.keyUp(key)
-                logging.debug(f"Releasing key: {key}")
+                print(f"Releasing key: {key}")
             except Exception as e:
-                logging.error(f"Could not release key {key}: {e}")
+                print(f"Could not release key {key}: {e}")
         self.pressed_keys.clear()
+
+    def handle_delay(self, current_action, next_action) -> None:
+        """
+        Pauses execution for the time duration between two recorded actions.
+        """
+        elapsed_time = next_action['time'] - current_action['time']
+        if elapsed_time < 0:
+            raise ValueError(
+                'Unexpected ordering between next_action and current_action.')
+
+        slept = 0.0
+        while slept < elapsed_time:
+            self.wait_if_paused()
+            start_time: float = time()
+            # Sleep for a small, fixed interval to allow for responsiveness to pause hotkey.
+            time.sleep(min(0.01, elapsed_time - slept))
+            slept += time() - start_time
 
     def convert_key(self, button) -> str:
         """

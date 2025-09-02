@@ -7,42 +7,7 @@ can be correctly simulated by pyautogui.
 
 # utils/key_mappings.py
 
-# A mapping from pynput key names to pyautogui key names.
-# This list is not exhaustive and should be updated as needed.
-key_map = {
-    'Key.space': 'space',
-    'Key.tab': 'tab',
-    'Key.enter': 'enter',
-    'Key.esc': 'esc',
-    'Key.backspace': 'backspace',
-    'Key.delete': 'delete',
-    'Key.home': 'home',
-    'Key.end': 'end',
-    'Key.page_up': 'pageup',
-    'Key.page_down': 'pagedown',
-    'Key.insert': 'insert',
-    'Key.ctrl_l': 'ctrlleft',
-    'Key.ctrl_r': 'ctrlright',
-    'Key.alt_l': 'altleft',
-    'Key.alt_r': 'altright',
-    'Key.shift_l': 'shiftleft',
-    'Key.shift_r': 'shiftright',
-
-    # Add the specific mappings for the control characters recorded by pynput
-    # for Ctrl+C and Ctrl+V.
-    '\u0003': 'c',  # Maps Ctrl+C to 'c'
-    '\u0016': 'v',  # Maps Ctrl+V to 'v'
-
-    # You may also need to add a mapping for Ctrl+X if you use it.
-    # The control character for Ctrl+X is often '\u0018'.
-    '\u0018': 'x',  # Maps Ctrl+X to 'x'
-
-    # And other common keys that might be affected by modifier keys
-    # For example, Ctrl+A (select all) might be '\u0001'.
-    '\u0001': 'a',
-}
-'''
-# Incomplete map of pynput -> pyautogui key conversions
+# A INCOMPLETE mapping from pynput key names to pyautogui key names.
 key_map = {
     # Modifier Keys
     "Key.alt": "alt",
@@ -111,5 +76,32 @@ key_map = {
     "Key.keypad_divide": "/",
     "Key.keypad_decimal": ".",
     "Key.keypad_enter": "enter",
+
+    'Key.space': 'space',
+    'Key.tab': 'tab',
+    'Key.enter': 'enter',
+    'Key.esc': 'esc',
+    'Key.backspace': 'backspace',
+    'Key.delete': 'delete',
+    'Key.home': 'home',
+    'Key.end': 'end',
+    'Key.page_up': 'pageup',
+    'Key.page_down': 'pagedown',
+    'Key.ctrl_l': 'ctrlleft',
+    'Key.ctrl_r': 'ctrlright',
+    'Key.alt_l': 'altleft',
+    'Key.alt_r': 'altright',
+    'Key.shift_l': 'shiftleft',
+    'Key.shift_r': 'shiftright',
+
+    # Add the specific mappings for the control characters recorded by pynput
+    # for Ctrl+C and Ctrl+V.
+    '\u0003': 'c',  # Maps Ctrl+C to 'c'
+    '\u0016': 'v',  # Maps Ctrl+V to 'v'
+
+    # You may also need to add a mapping for Ctrl+X if you use it.
+    '\u0018': 'x',  # Maps Ctrl+X to 'x'
+
+    # And other common keys that might be affected by modifier keys
+    '\u0001': 'a',
 }
-'''

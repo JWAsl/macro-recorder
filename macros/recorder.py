@@ -6,10 +6,16 @@ and saves them along with a timestamp relative to the start of recording.
 """
 
 import threading
-from time import time
+import logging
+
+from time import time, perf_counter
 from pynput import mouse, keyboard
 
 from utils.countdown import countdown_timer
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 class EventType:
@@ -37,38 +43,21 @@ class MacroRecorder:
 
         - pressed_keys: Tracks currently held down keys.
         - saved_inputs: A list to store all recorded events before saving to file.
-        - start_time: The timestamp when recording officially began.
+        - last_event_time: Track last event's time to get time delta
         - is_paused: A boolean flag to indicate if recording is currently paused.
         - pause_start_time: The timestamp when the last pause was initiated.
-        - total_pause_time: The cumulative time spent in the paused state.
         - exit_event: A threading.Event to signal the main loop to terminate gracefully.
         """
         self.pressed_keys = set()
         self.saved_inputs = []
-        self.start_time = None
+        self.last_event_time = None
         self.is_paused = False
         self.pause_start_time = None
-        self.total_pause_time = 0.0
         self.exit_event = threading.Event()
 
-    def elapsed_time(self) -> float:
-        """
-        Calculates the elapsed time since recording started,
-        excluding any periods of pausing.
-
-        Returns:
-            float: The total active recording time in seconds.
-        """
-        now = time()
-        if self.is_paused:
-            # If paused, return the time up to the moment the pause started.
-            return self.pause_start_time - self.start_time - self.total_pause_time
-        else:
-            # If not paused, return the total time minus the paused time.
-            return now - self.start_time - self.total_pause_time
-
     def run_listeners(self) -> None:
-        self.start_time = time()
+        self.last_event_time = perf_counter()
+
         self.mouse_listener = mouse.Listener(
             on_click=self.on_click,
             on_scroll=self.on_scroll
@@ -117,12 +106,12 @@ class MacroRecorder:
             self.toggle_pause()
             return
 
+        # Do not record event if paused, is an ignored key, or already being pressed.
         if self.is_paused or key in self.IGNORED_KEYS or key in self.pressed_keys:
             return
 
         self.pressed_keys.add(key)
         self.record_event(EventType.KEY_DOWN,
-                          self.elapsed_time(),
                           self.stringify_key(key),
                           pressed_keys=[self.stringify_key(key) for key in self.pressed_keys])
 
@@ -131,11 +120,12 @@ class MacroRecorder:
         Callback from the pynput listener on a key release event.
         Handles the exit key and records the keyup event.
         """
+
+        # Do not record event if paused, is an ignored key, or the pause key.
         if self.is_paused or key in self.IGNORED_KEYS or key == self.PAUSE_KEY:
             return
 
         self.record_event(EventType.KEY_UP,
-                          self.elapsed_time(),
                           self.stringify_key(key),
                           pressed_keys=[self.stringify_key(key) for key in self.pressed_keys])
 
@@ -143,7 +133,7 @@ class MacroRecorder:
             self.pressed_keys.remove(key)
 
         if key == self.EXIT_KEY:
-            # Set the event to signal the main thread to terminate
+            # Set the event to signal the main thread to terminate.
             self.exit_event.set()
 
     def on_click(self, x, y, button, pressed) -> None:
@@ -152,21 +142,25 @@ class MacroRecorder:
             return
         if not pressed:
             self.record_event(
-                EventType.CLICK, self.elapsed_time(), button, pos=(x, y))
+                EventType.CLICK, button, pos=(x, y))
 
     def on_scroll(self, x, y, dx, dy) -> None:
         """Callback from the pynput listener on a mouse scroll event."""
         if self.is_paused:
             return
-        self.record_event(EventType.SCROLL, self.elapsed_time(),
+        self.record_event(EventType.SCROLL,
                           'mouse_wheel', pos=(x, y), scroll_direction={'dx': dx, 'dy': dy})
 
-    def record_event(self, event_type, event_time, button, **kwargs) -> None:
+    def record_event(self, event_type, button, **kwargs) -> None:
         """
         Creates an event dictionary and adds it to the saved inputs list.
         """
+        now = perf_counter()
+        # Calculate time elapsed since last recorded event.
+        time_delta = now - self.last_event_time
+
         event_data = {
-            'time': event_time,
+            'time_delta': time_delta,
             'type': event_type,
             'button': str(button),
             'pos': None,
@@ -174,54 +168,50 @@ class MacroRecorder:
             'pressed_keys': []
         }
 
-        # Update with event-specific parameters (e.g., position, scroll direction)
+        # Update with event-specific parameters (e.g., position, scroll direction).
         event_data.update(kwargs)
         self.saved_inputs.append(event_data)
-        self.print_event(event_data)
+        self.last_event_time = now
 
-    def print_event(self, event_data) -> None:
-        """
-        Prints a summary of a recorded event to the console for debugging.
-        """
-        print(f"Event: {event_data['type']}")
-        print(f"Button: {event_data['button']}")
+        log_message = (
+            f"Event: {event_data['type']} | "
+            f"Button: {event_data['button']} | "
+            f"Time Delta: {event_data['time_delta']:.4f}s"
+        )
         if event_data.get('pos'):
-            print(f"Position: {event_data['pos']}")
+            log_message += f" | Position: {event_data['pos']}"
         if event_data.get('scroll_direction'):
-            print(f"Scroll: {event_data['scroll_direction']}")
-        print(f"Time: {event_data['time']:.4f}\n")
+            log_message += f" | Scroll: {event_data['scroll_direction']}"
+
+        logger.debug(log_message)
 
     def toggle_pause(self) -> None:
         """
         Toggles the recording state between paused and resumed.
         """
         if not self.is_paused:
-            self.pause_start_time = time()
+            self.pause_start_time = perf_counter()
             self.is_paused = True
-            print("[Paused]")
+            logging.info("[Paused]")
         else:
-            # Calculate and add the duration of the pause to the total
-            paused_time = time() - self.pause_start_time
-            self.total_pause_time += paused_time
+            paused_time = perf_counter() - self.pause_start_time
+            # Adjusts last_event_time to correct for pause duration.
+            # Ensures time_delta for the next recorded event accurately reflects the time since the last active event
+            # and not the time since the pause began.
+            self.last_event_time += paused_time
             self.pause_start_time = None
             self.is_paused = False
-            print("[Resumed]")
+            logging.info("[Resumed]")
 
     def cleanup(self) -> None:
         """
         Records key-up events for all keys that are still marked as pressed.
-        This ensures a clean and complete macro file on exit with no phantom key down events.
+        Ensures a clean and complete macro file on exit with no phantom key down events.
         """
-        # Create a list from the set to iterate over, as the set will be modified
         keys_to_release = list(self.pressed_keys)
         for key in keys_to_release:
-            # Call on_release for each key, which will remove it from the set
-            # and record the key-up event.
             self.on_release(key)
 
     def record(self) -> None:
-        """
-        Starts a countdown and then begins the recording process.
-        """
         countdown_timer()
         self.run_listeners()

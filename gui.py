@@ -9,11 +9,14 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, filedialog, PhotoImage
 from pathlib import Path
 import threading
+import logging
 
 from macros.recorder import MacroRecorder
 from macros.playback import MacroPlayer
 from utils.json_utils import save_file, open_file
 from utils.countdown import countdown_timer
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 class MacroRecorderGUI:
@@ -48,7 +51,7 @@ class MacroRecorderGUI:
     def on_closing(self) -> None:
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             self.master.destroy()
-            print("Application closed successfully.")
+            logging.info("Application closed successfully.")
 
     def setup_widgets(self) -> None:
         assets_path = Path.cwd() / "assets"
@@ -66,7 +69,8 @@ class MacroRecorderGUI:
 
         except tk.TclError:
             # Fallback for when image files are not found
-            print("Warning: Image assets not found. Using text labels instead.")
+            logging.info(
+                "Warning: Image assets not found. Using text labels instead.")
             record_button = tk.Button(
                 self.master, text="Record", font=("Arial", 20), command=self.start_record_thread)
             play_button = tk.Button(
@@ -90,7 +94,6 @@ class MacroRecorderGUI:
         """
         manager = MacroRecorder()
         manager.record()
-        print(f"Recording Duration: {manager.elapsed_time()} seconds")
 
         self.master.after(0, self._ask_and_save_recording,
                           manager.saved_inputs)
@@ -110,7 +113,7 @@ class MacroRecorderGUI:
                 filename += ".json"
             save_file(filename, saved_inputs)
         else:
-            print("Save cancelled.")
+            logging.info("Save cancelled.")
 
     def start_play_thread(self) -> None:
         """
@@ -129,7 +132,7 @@ class MacroRecorderGUI:
                 target=self._play_macro, args=(filepath,), daemon=True)
             thread.start()
         else:
-            print("Playback cancelled.")
+            logging.info("Playback cancelled.")
 
     def _play_macro(self, filepath) -> None:
         """
@@ -143,7 +146,7 @@ class MacroRecorderGUI:
         if data:
             countdown_timer()
             manager.play_actions(data)
-            print(f"Played: {filepath}")
+            logging.info(f"Played: {filepath}")
 
 
 def setUpGUI() -> None:
