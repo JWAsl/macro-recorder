@@ -49,10 +49,6 @@ A cross-platform desktop automation tool to record and replay user actions. Buil
     This can be edited with keyboard key codes
 ---
 
-## Limitations
-
-Since key's are recorded and played back as individual keys, key combinations will not work (Ex. CTRL+S to save)
-
 # License
 
 This project is licensed under the MIT License. Feel free to use, modify, and distribute it as per the license terms.
