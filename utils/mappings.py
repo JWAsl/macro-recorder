@@ -1,15 +1,11 @@
 """
-A mapping of pynput key codes -> pyautogui key codes.
+Key and mouse mappings from pynput input codes to pyautogui codes.
 
-This module provides a translation layer to ensure that keys recorded by pynput
-can be correctly simulated by pyautogui.
+Allows MacroPlayer to replay MacroRecorder's recordings.
+
 """
 
-# utils/key_mappings.py
-
-# A INCOMPLETE mapping from pynput key names to pyautogui key names.
 key_map = {
-    # Modifier Keys
     "Key.alt": "alt",
     "Key.alt_l": "altleft",
     "Key.alt_r": "altright",
@@ -22,8 +18,6 @@ key_map = {
     "Key.cmd": "win",
     "Key.cmd_l": "winleft",
     "Key.cmd_r": "winright",
-
-    # Special Keys
     "Key.space": "space",
     "Key.enter": "enter",
     "Key.tab": "tab",
@@ -51,14 +45,10 @@ key_map = {
     "Key.end": "end",
     "Key.page_up": "pageup",
     "Key.page_down": "pagedown",
-
-    # Arrow Keys
     "Key.up": "up",
     "Key.down": "down",
     "Key.left": "left",
     "Key.right": "right",
-
-    # Numpad Keys
     "Key.num_lock": "numlock",
     "Key.keypad_0": "num0",
     "Key.keypad_1": "num1",
@@ -76,32 +66,36 @@ key_map = {
     "Key.keypad_divide": "/",
     "Key.keypad_decimal": ".",
     "Key.keypad_enter": "enter",
-
-    'Key.space': 'space',
-    'Key.tab': 'tab',
-    'Key.enter': 'enter',
-    'Key.esc': 'esc',
-    'Key.backspace': 'backspace',
-    'Key.delete': 'delete',
-    'Key.home': 'home',
-    'Key.end': 'end',
-    'Key.page_up': 'pageup',
-    'Key.page_down': 'pagedown',
-    'Key.ctrl_l': 'ctrlleft',
-    'Key.ctrl_r': 'ctrlright',
-    'Key.alt_l': 'altleft',
-    'Key.alt_r': 'altright',
-    'Key.shift_l': 'shiftleft',
-    'Key.shift_r': 'shiftright',
-
-    # Add the specific mappings for the control characters recorded by pynput
-    # for Ctrl+C and Ctrl+V.
-    '\u0003': 'c',  # Maps Ctrl+C to 'c'
-    '\u0016': 'v',  # Maps Ctrl+V to 'v'
-
-    # You may also need to add a mapping for Ctrl+X if you use it.
-    '\u0018': 'x',  # Maps Ctrl+X to 'x'
-
-    # And other common keys that might be affected by modifier keys
     '\u0001': 'a',
+    '\u0002': 'b',
+    '\u0003': 'c',
+    '\u0004': 'd',
+    '\u0005': 'e',
+    '\u0006': 'f',
+    '\u0007': 'g',
+    '\u0008': 'h',
+    '\u0009': 'i',
+    '\u000a': 'j',
+    '\u000b': 'k',
+    '\u000c': 'l',
+    '\u000d': 'm',
+    '\u000e': 'n',
+    '\u000f': 'o',
+    '\u0010': 'p',
+    '\u0011': 'q',
+    '\u0012': 'r',
+    '\u0013': 's',
+    '\u0014': 't',
+    '\u0015': 'u',
+    '\u0016': 'v',
+    '\u0017': 'w',
+    '\u0018': 'x',
+    '\u0019': 'y',
+    '\u001a': 'z',
+}
+
+mouse_button_map = {
+    "Button.left": "left",
+    "Button.right": "right",
+    "Button.middle": "middle",
 }

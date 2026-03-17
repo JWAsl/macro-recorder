@@ -2,3 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Ignore recorded macros
+recordings/*
+!recordings/.gitkeep

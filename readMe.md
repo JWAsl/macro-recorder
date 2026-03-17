@@ -16,7 +16,7 @@ A cross-platform desktop automation tool to record and replay user actions. Buil
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - Install dependencies:
   ```bash
   pip install pynput pyautogui keyboard

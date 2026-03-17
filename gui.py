@@ -1,155 +1,265 @@
 """
-Manages the graphical user interface for the Macro Recorder application.
+Entry point for the Macro Recorder GUI application.
 
-This module sets up the main window, buttons, and handles user interactions
-like starting recording and playback. It uses multithreading to
-keep the GUI responsive during long-running tasks.
+This module implements the MacroGUI controller using Tkinter, providing a 
+interface for recording and replaying user inputs. 
+
+Classes:
+    MacroGUI: Threaded controller that manages the application state.
 """
-import tkinter as tk
-from tkinter import messagebox, simpledialog, filedialog, PhotoImage
-from pathlib import Path
-import threading
+
 import logging
+import threading
+from pathlib import Path
+from time import sleep
+
+import tkinter as tk
+from tkinter import filedialog, messagebox, PhotoImage, simpledialog
 
 from macros.recorder import MacroRecorder
 from macros.playback import MacroPlayer
 from utils.json_utils import save_file, open_file
-from utils.countdown import countdown_timer
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger("GUI")
 
 
-class MacroRecorderGUI:
-    """
-    A class to create and manage the Tkinter-based GUI for the macro recorder.
-    """
+class MacroGUI:
+    """Tkinter GUI controller for macro recording and playback."""
 
-    def __init__(self, master):
+    def __init__(self, master: tk.Tk):
         """
-        Initializes the GUI and sets up the main window.
+        Initializes all UI elements and layout.
 
         Args:
-            master: The root Tkinter window.
+            master (tk.Tk): Tkinter root window.
         """
         self.master = master
         self.master.title("Macro Recorder")
         self.master.geometry("400x300")
-        self.master.resizable(False, False)
 
         self.master.grid_columnconfigure(0, weight=1)
         self.master.grid_columnconfigure(1, weight=1)
         self.master.grid_rowconfigure(0, weight=1)
 
-        # Handle window closing event
-        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.master.protocol("WM_DELETE_WINDOW", self.shutdown)
 
         self.record_img = None
         self.play_img = None
+        self.current_macro = None
 
-        self.setup_widgets()
+        self.status_label = tk.Label(
+            self.master, text="Idle", font=("Arial", 12))
+        self.status_label.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=10)
 
-    def on_closing(self) -> None:
-        if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            self.master.destroy()
-            logging.info("Application closed successfully.")
+        self.buttons: list[tk.Button] = []
 
-    def setup_widgets(self) -> None:
-        assets_path = Path.cwd() / "assets"
-        try:
-            self.record_img = PhotoImage(file=str(assets_path / "record.png"))
-            self.play_img = PhotoImage(file=str(assets_path / "play.png"))
+        self.set_up_widgets()
 
-            record_button = tk.Button(
-                self.master, image=self.record_img, command=self.start_record_thread)
-            record_button.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+    def set_up_widgets(self) -> None:
+        """Initializes and places main UI components (Record + Play buttons)."""
+        self.record_img = self.load_image("record.png")
+        self.play_img = self.load_image("play.png")
 
-            play_button = tk.Button(
-                self.master, image=self.play_img, command=self.start_play_thread)
-            play_button.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        record_button = tk.Button(
+            self.master,
+            image=self.record_img,
+            text="Record",
+            font=("Arial", 20),
+            compound="top",
+            command=self.start_recorder,
+        )
+        record_button.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-        except tk.TclError:
-            # Fallback for when image files are not found
-            logging.info(
-                "Warning: Image assets not found. Using text labels instead.")
-            record_button = tk.Button(
-                self.master, text="Record", font=("Arial", 20), command=self.start_record_thread)
-            play_button = tk.Button(
-                self.master, text="Play", font=("Arial", 20), command=self.start_play_thread)
-            record_button.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-            play_button.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        play_button = tk.Button(
+            self.master,
+            image=self.play_img,
+            text="Play",
+            font=("Arial", 20),
+            compound="top",
+            command=self.start_playback,
+        )
+        play_button.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
-    def start_record_thread(self) -> None:
+        self.buttons = [record_button, play_button]
+
+    def load_image(self, filename: str) -> PhotoImage | None:
         """
-        Starts a new thread to run the recording process.
-        The save dialog will be triggered on the main thread after recording finishes.
-        """
-        thread = threading.Thread(
-            target=self._record_and_save, daemon=True)
-        thread.start()
-
-    def _record_and_save(self) -> None:
-        """
-        Runs recording logic in a separate thread.
-        Once recording is complete, it schedules a function to handle saving on the main thread.
-        """
-        manager = MacroRecorder()
-        manager.record()
-
-        self.master.after(0, self._ask_and_save_recording,
-                          manager.saved_inputs)
-
-    def _ask_and_save_recording(self, saved_inputs) -> None:
-        """
-        Displays a simpledialog to ask the user for a filename and saves the recording.
-        This function must be called from the main Tkinter thread.
+        Loads a PhotoImage from the assets folder.
 
         Args:
-            saved_inputs: The list of recorded events to be saved.
+            filename (str): Name of the image file.
+
+        Returns:
+            PhotoImage | None: Loaded image, or None if missing.
         """
-        filename = simpledialog.askstring(
-            "Save Recording", "Enter filename to save (without .json):")
+        path = Path.cwd() / "assets" / filename
+        if path.exists():
+            return PhotoImage(file=str(path))
+
+        logger.warning("Asset not found: %s", filename)
+        return None
+
+    def shutdown(self) -> None:
+        """
+        Handles window close event.
+
+        Prompts the user for confirmation before closing the application.
+        """
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.master.destroy()
+            logger.info("Application closed successfully.")
+
+    def update_status(self, message: str) -> None:
+        """
+        Updates the status label safely from any thread.
+
+        Schedules the status update to run on the main Tkinter thread,
+        ensuring thread safety and UI stability.
+
+        Args:
+            message (str): Status text to display.
+        """
+        self.master.after(0, lambda: self.status_label.config(text=message))
+
+    def disable_buttons(self) -> None:
+        """Disables the main UI buttons (Record & Play)."""
+        for btn in self.buttons:
+            btn.config(state=tk.DISABLED)
+
+    def enable_buttons(self) -> None:
+        """Enables the main UI buttons (Record & Play)."""
+        for btn in self.buttons:
+            btn.config(state=tk.NORMAL)
+
+    def start_recorder(self) -> None:
+        """Starts macro recording on a separate thread."""
+        self.disable_buttons()
+        threading.Thread(
+            target=self.recorder, daemon=True).start()
+
+    def recorder(self) -> None:
+        """
+        Captures user input events and saves the resulting macro.
+
+        This runs in a background thread to keep the GUI responsive.
+        """
+        try:
+            recorder = MacroRecorder(status=self.update_status)
+
+            for i in range(3, 0, -1):
+                self.update_status(f"Starting in {i}...")
+                sleep(1)
+
+            self.update_status("Recording...")
+            recorder.start_recording()
+
+            self.master.after(0, self.save_recording, recorder.events)
+
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.exception("Recording failed due to an unexpected error")
+            self.master.after(
+                0, lambda: messagebox.showerror(
+                    "Error", "Recording failed. Check logs for details.")
+            )
+        finally:
+            self.master.after(0, self.enable_buttons)
+            self.master.after(1500, lambda: self.update_status("Idle"))
+
+    def save_recording(self, events: list[dict]) -> None:
+        """
+        Prompts user for a filename and writes macro data to disk.
+
+        Args:
+            events (list[dict]): Recorded macro events.
+        """
+        save_dir = Path.cwd() / "recordings"
+        save_dir.mkdir(exist_ok=True)
+
+        filename = simpledialog.askstring("Save Recording", "Enter filename:")
         if filename:
             if not filename.endswith(".json"):
                 filename += ".json"
-            save_file(filename, saved_inputs)
-        else:
-            logging.info("Save cancelled.")
 
-    def start_play_thread(self) -> None:
-        """
-        Displays a file dialog to select a recording, then starts a new thread to play it back.
-        The file dialog must run on the main thread.
-        """
+            filepath = save_dir / filename
+            save_file(filepath, events)
+            self.update_status(f"Saved: {filename}")
+        else:
+            logger.info("Save cancelled.")
+
+    def start_playback(self) -> None:
+        """Launches a file selection dialog and begins playback."""
+        self.disable_buttons()
+
         filepath = filedialog.askopenfilename(
             title="Select macro file to play",
             initialdir=Path.cwd() / "recordings",
             filetypes=[("JSON Files", "*.json")],
-            defaultextension=".json"
+            defaultextension=".json",
         )
 
         if filepath:
-            thread = threading.Thread(
-                target=self._play_macro, args=(filepath,), daemon=True)
-            thread.start()
+            threading.Thread(target=self.playback, args=(
+                filepath,), daemon=True).start()
         else:
-            logging.info("Playback cancelled.")
+            logger.info("Playback cancelled.")
+            self.enable_buttons()
+            self.update_status("Idle")
 
-    def _play_macro(self, filepath) -> None:
+    def playback(self, filepath: str) -> None:
         """
-        Internal method to run the playback logic. This runs in a separate thread.
+        Loads and executes a macro file.
 
         Args:
-            filepath: The path to the macro file to play.
+            filepath (str): Absolute path to a JSON macro file.
         """
-        manager = MacroPlayer()
-        data = open_file(filepath)
-        if data:
-            countdown_timer()
-            manager.play_actions(data)
-            logging.info(f"Played: {filepath}")
+        self.current_macro = Path(filepath).name
+
+        def status(msg: str) -> None:
+            label = f"{msg}: {self.current_macro}" if self.current_macro else msg
+            self.update_status(label)
+
+        try:
+            data: list[dict] | None = open_file(filepath)
+            if not data:
+                raise ValueError("File is empty or invalid JSON")
+
+            player = MacroPlayer(status=status)
+            self.update_status(f"Loading: {self.current_macro}")
+
+            for i in range(3, 0, -1):
+                status(f"Starting in {i}")
+                sleep(1)
+
+            status("Playing")
+            player.start_playback(data)
+
+            if player.playback_thread and player.playback_thread.is_alive():
+                player.playback_thread.join()
+
+            status("Finished")
+            logger.info("Played: %s", filepath)
+
+        except ValueError as e:
+            logger.error("Error loading macro file: %s", e)
+            self.master.after(
+                0, lambda: messagebox.showerror(
+                    "Error", f"Failed to load macro: {e}")
+            )
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.exception("Playback failed unexpectedly")
+            self.master.after(
+                0, lambda: messagebox.showerror(
+                    "Error", "Playback failed. Check logs for details.")
+            )
+        finally:
+            self.master.after(0, self.enable_buttons)
+            self.master.after(1500, lambda: self.update_status("Idle"))
+            self.current_macro = None
 
 
-def setUpGUI() -> None:
+def set_up_gui() -> None:
+    """Starts the Tkinter main application loop."""
     window = tk.Tk()
-    app = MacroRecorderGUI(window)
+    MacroGUI(window)
     window.mainloop()
