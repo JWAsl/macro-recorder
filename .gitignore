@@ -1,8 +1,12 @@
-# Ignore Python cache
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Ignore recorded macros
+# IDE and Temp files
+.vscode/
+tempCodeRunnerFile.py
+
+# Macro recordings
 recordings/*
 !recordings/.gitkeep
